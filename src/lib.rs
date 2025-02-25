@@ -1,7 +1,16 @@
+extern crate web_sys;
+
 mod utils;
 
 use std::fmt;
 use wasm_bindgen::prelude::*;
+use web_sys::console;
+
+macro_rules! log {
+    ( $( $t:tt )* ) => {
+        console::log_1(&format!( $( $t )* ).into());
+    }
+}
 
 #[wasm_bindgen]
 #[repr(u8)]
@@ -9,6 +18,15 @@ use wasm_bindgen::prelude::*;
 pub enum Cell {
     Dead = 0,
     Alive = 1,
+}
+
+impl Cell {
+    fn toggle(&mut self) {
+        *self = match *self {
+            Cell::Dead => Cell::Alive,
+            Cell::Alive => Cell::Dead,
+        };
+    }
 }
 
 #[wasm_bindgen]
@@ -21,6 +39,10 @@ pub struct Universe {
 #[wasm_bindgen]
 impl Universe {
     pub fn new() -> Universe {
+        utils::set_panic_hook();
+
+        log!("Hello, world!");
+
         let width = 64;
         let height = 64;
 
@@ -45,6 +67,11 @@ impl Universe {
         self.to_string()
     }
 
+    pub fn toggle_cell(&mut self, row: u32, column: u32) {
+        let idx = self.get_index(row, column);
+        self.cells[idx].toggle();
+    }
+
     pub fn tick(&mut self) {
         let mut next = self.cells.clone();
 
@@ -67,6 +94,41 @@ impl Universe {
         }
 
         self.cells = next;
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn set_width(&mut self, width: u32) {
+        self.width = width;
+        self.cells = (0..width * self.height).map(|_i| Cell::Dead).collect();
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    pub fn set_height(&mut self, height: u32) {
+        self.height = height;
+        self.cells = (0..self.width * height).map(|_i| Cell::Dead).collect();
+    }
+
+    pub fn cells(&self) -> *const Cell {
+        self.cells.as_ptr()
+    }
+}
+
+impl Universe {
+    pub fn get_cells(&self) -> &[Cell] {
+        &self.cells
+    }
+
+    pub fn set_cells(&mut self, cells: &[(u32, u32)]) {
+        for (row, col) in cells.iter().cloned() {
+            let idx = self.get_index(row, col);
+            self.cells[idx] = Cell::Alive;
+        }
     }
 
     fn get_index(&self, row: u32, column: u32) -> usize {
