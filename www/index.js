@@ -1,12 +1,15 @@
 import { Universe, Cell } from "wasm-game-of-life";
 import { memory } from "wasm-game-of-life/wasm_game_of_life_bg.wasm";
 
-const CELL_SIZE = 5; // px
+const CELL_SIZE = 7; // px
 const GRID_COLOR = "#CCCCCC";
 const DEAD_COLOR = "#FFFFFF";
 const ALIVE_COLOR = "#000000";
 
-const universe = Universe.new();
+const startWidth = 64;
+const startHeight = 64;
+
+let universe = Universe.new(startWidth, startHeight);
 const width = universe.width();
 const height = universe.height();
 
@@ -44,9 +47,59 @@ playPauseButton.addEventListener("click", () => {
     pause();
 });
 
+const reloadButton = document.getElementById("reload-universe");
+reloadButton.addEventListener("click", () => {
+    if (!isPaused()) {
+        pause();
+    }
+
+    reload();
+});
+
 let animationId = null;
 
+const fps = new class {
+    constructor() {
+        this.fps = document.getElementById("fps");
+        this.frames = [];
+        this.lastFrameTimestamp = performance.now();
+    }
+
+    render() {
+        const now = performance.now();
+        const delta = now - this.lastFrameTimestamp;
+        this.lastFrameTimestamp = now;
+        const fps = 1 / delta * 1000;
+
+        this.frames.push(fps);
+        if (this.frames.length > 100) {
+            this.frames.shift();
+        }
+
+        let min = Infinity;
+        let max = -Infinity;
+        let sum = 0;
+        for (let i = 0; i < this.frames.length; i++) {
+            sum += this.frames[i];
+            min = Math.min(this.frames[i], min);
+            max = Math.max(this.frames[i], max);
+        }
+
+        let mean = sum / this.frames.length;
+
+        this.fps.textContent = `
+Frame per Second:
+         latest = ${Math.round(fps)}
+avg of last 100 = ${Math.round(mean)}
+min of last 100 = ${Math.round(min)}
+max of last 100 = ${Math.round(max)}
+`.trim();
+    }
+};
+
 const render = () => {
+    fps.render();
+
     drawGrid();
     drawCells();
 
@@ -62,6 +115,12 @@ const pause = () => {
     playPauseButton.textContent = "▶";
     cancelAnimationFrame(animationId);
     animationId = null;
+};
+
+const reload = () => {
+    universe = Universe.new(startWidth, startHeight);
+
+    play();
 };
 
 const isPaused = () => {
